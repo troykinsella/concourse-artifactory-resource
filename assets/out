@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -e
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+source=$1
+if [ -z "$source" ]; then
+  echo "usage: $0 <path/to/source>" >&2
+  exit 1
+fi
+
+payload=$(mktemp /tmp/artifactory-artifact.XXXXXX)
+cat > $payload <&0
+
+repository=$(jq -r '.source.repository // ""' < $payload)
+test -z "$repository" && { echo "Source attribute required: 'repository'" >&2; exit 1; }
+
+api_key=$(jq -r '.source.api_key // ""' < $payload)
+test -z "$api_key" && { echo "Source attribute required: 'api_key'" >&2; exit 1; }
+
+path=$(jq -r '.source.path // ""' < $payload)
+files=$(jq -r '.params.files // ""' < $payload)
+glob=$(jq -r '.params.glob // "*"' < $payload)
+
+cd $source/$files
+
+for f in $(ls $glob); do
+  file_url=$repository/$path/$f
+
+  echo "Publishing $file_url"
+  curl -L --fail -H "X-JFrog-Art-Api:$api_key" -T "$f" "$file_url"
+done
+
+printf '{"version":{}}' >&3
