@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -e
 
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
@@ -29,7 +29,7 @@ cd $source/$files
 for f in $(ls $glob); do
   file_url=$repository/$path/$f
 
-  curl -SsL --fail -H 'X-JFrog-Art-Api: $api_key' -T "$f" "$file_url"
+  curl -SsL --fail -H "X-JFrog-Art-Api: $api_key" -T "$f" "$file_url"
   echo "Published $file_url"
 done
 
