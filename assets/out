@@ -18,7 +18,7 @@ repository=$(jq -r '.source.repository // ""' < $payload)
 test -z "$repository" && { echo "Source attribute required: 'repository'" >&2; exit 1; }
 
 api_key=$(jq -r '.source.api_key // ""' < $payload)
-test -z "$repository" && { echo "Source attribute required: 'api_key'" >&2; exit 1; }
+test -z "$api_key" && { echo "Source attribute required: 'api_key'" >&2; exit 1; }
 
 path=$(jq -r '.source.path // ""' < $payload)
 files=$(jq -r '.params.files // ""' < $payload)
