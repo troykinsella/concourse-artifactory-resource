@@ -7,6 +7,7 @@ RUN set -eux; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       ca-certificates \
-      curl; \
+      curl \
+      jq; \
     apt-get clean all; \
     rm -rf /var/lib/apt/lists/*
