@@ -29,8 +29,8 @@ cd $source/$files
 for f in $(ls $glob); do
   file_url=$repository/$path/$f
 
-  curl -SsL --fail -H "X-JFrog-Art-Api: $api_key" -T "$f" "$file_url"
-  echo "Published $file_url"
+  echo "Publishing $file_url"
+  curl -L --fail -H "X-JFrog-Art-Api: $api_key" -T "$f" "$file_url"
 done
 
 printf '{"version":{}}' >&3
