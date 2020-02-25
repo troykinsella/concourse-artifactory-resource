@@ -28,7 +28,7 @@ resources:
   type: generic-artifact
   source:
     repository: https://tools.example.com/artifactory/generic-local
-    apt_key: asdf
+    api_key: asdf
     path: project-A
 ```
 
