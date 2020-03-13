@@ -16,7 +16,7 @@ Artifacts are published using a `curl` `PUT` along with a
 ### Example
 
 ```yaml
-resources_types:
+resource_types:
 - name: generic-artifact
   type: docker-image
   source:
