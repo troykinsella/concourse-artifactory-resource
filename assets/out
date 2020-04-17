@@ -1,36 +1,82 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
 
-source=$1
+source $(dirname $0)/common.sh
+
+source="$1"
 if [ -z "$source" ]; then
   echo "usage: $0 <path/to/source>" >&2
   exit 1
 fi
 
-payload=$(mktemp /tmp/artifactory-artifact.XXXXXX)
-cat > $payload <&0
+payload=/tmp/artifactory-resource-request
+cat > "$payload" <&0
 
-repository=$(jq -r '.source.repository // ""' < $payload)
-test -z "$repository" && { echo "Source attribute required: 'repository'" >&2; exit 1; }
+base_url=$(require_attr source url)
+repository=$(require_attr source repository)
+file_path=$(require_attr source path)
+api_key=$(require_attr source api_key)
+files=$(require_attr params files)
+version_strategy=$(jq -r '.source.version_strategy // "none"' < "$payload")
 
-api_key=$(jq -r '.source.api_key // ""' < $payload)
-test -z "$api_key" && { echo "Source attribute required: 'api_key'" >&2; exit 1; }
+publish() {
+  local f="$1"
+  local file_url="$2"
 
-path=$(jq -r '.source.path // ""' < $payload)
-files=$(jq -r '.params.files // ""' < $payload)
-glob=$(jq -r '.params.glob // "*"' < $payload)
+  if ! ls "$f" 2>&1 > /dev/null; then
+    echo "file to publish not found: $f" >&2
+    exit 1
+  fi
 
-cd $source/$files
-
-for f in $(ls $glob); do
-  file_url=$repository/$path/$f
+  local checksum_sha1=$(sha1sum "$f" | awk '{print $1}')
+  local checksum_sha256=$(sha256sum "$f" | awk '{print $1}')
+  local checksum_md5=$(md5sum "$f" | awk '{print $1}')
 
   echo "Publishing $file_url"
-  curl -L --fail -H "X-JFrog-Art-Api:$api_key" -T "$f" "$file_url"
-done
+  curl --fail -L \
+    -X PUT \
+    -H "X-JFrog-Art-Api: ${api_key}" \
+    -H "X-Checksum-Sha1: ${checksum_sha1}" \
+    -H "X-Checksum-Sha256: ${checksum_sha256}" \
+    -H "X-Checksum-Md5: ${checksum_md5}" \
+    -T "$f" \
+    "$file_url"
+}
 
-printf '{"version":{}}' >&3
+cd "$source/$files"
+
+if [[ $version_strategy == "none" ]]; then
+  # No version strategy; just loop matching files and publish each
+  published=
+  glob=$(jq -r '.params.glob // "*"' < "$payload")
+  for f in $(ls $glob 2> /dev/null); do
+    publish "$f" "$base_url/$repository/$file_path/$f"
+    published=yep
+  done
+
+  if [[ -z "$published" ]]; then
+    echo "glob param did not match any files in path: $source/$files" >&2
+    exit 1
+  fi
+
+  echo '{"version":{}}' >&3
+
+elif [[ $version_strategy == 'single-file' ]]; then
+  file_name=$(basename "$file_path")
+  publish "$file_name" "$base_url/$repository/$file_path"
+
+  version=$(sha256sum "$file_name" | awk '{print $1}')
+  jq -n "{
+    version: {
+      sha256: \"$version\"
+    }
+  }" >&3
+
+else
+  echo "unrecognized version strategy: $version_strategy" >&2
+  exit 1
+fi

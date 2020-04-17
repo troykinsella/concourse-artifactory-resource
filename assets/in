@@ -1,2 +1,74 @@
-#!/bin/sh
-printf '{"version":{}}'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+source $(dirname $0)/common.sh
+
+destination="$1"
+
+if [ -z "$destination" ]; then
+  echo "usage: $0 <path/to/destination>" >&2
+  exit 1
+fi
+
+# for jq
+PATH=/usr/local/bin:$PATH
+
+payload=/tmp/artifactory-resource-request
+cat > "$payload" <&0
+
+base_url=$(require_attr source url)
+repository=$(require_attr source repository)
+api_key=$(require_attr source api_key)
+version_strategy=$(jq -r '.source.version_strategy // "none"' < "$payload")
+skip_download=$(jq -r '.params.skip_download // false' < "$payload")
+
+cd "$destination"
+
+if [[ $version_strategy == "none" ]]; then
+  # Do nothing
+  echo '{"version":{}}' >&3
+
+elif [[ $version_strategy == "single-file" ]]; then
+  version=$(require_attr version sha256)
+  echo "$version" > version
+
+  file_path=$(require_attr source path)
+
+  data=$(curl -fSsL \
+    -H "X-JFrog-Art-Api: ${api_key}" \
+    "${base_url}/api/storage/${repository}/${file_path}"
+  )
+
+  checksum_sha256=$(echo "$data" | jq -r '.checksums.sha256')
+  if [[ $checksum_sha256 != $version ]]; then
+    echo "version unavailable: $version" >&2
+    exit 1
+  fi
+
+  file_url=$(echo "$data" | jq -r '.downloadUri')
+  file_name=$(basename $(echo "$data" | jq -r '.path'))
+
+  if [ "$skip_download" = "false" ]; then
+    echo "Downloading ${file_url}..."
+    curl -fL \
+      -H "X-JFrog-Art-Api: ${api_key}" \
+      -o "$file_name" \
+      "$file_url"
+  else
+    echo "Skipping download"
+  fi
+
+  jq -n "{
+    version: {
+      sha256: \"$checksum_sha256\"
+    }
+  }" >&3
+
+else
+  echo "unrecognized version strategy: $version_strategy" >&2
+  exit 1
+fi

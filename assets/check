@@ -1,2 +1,47 @@
-#!/bin/sh
-printf []
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+PATH=/usr/local/bin:$PATH
+
+source $(dirname "$0")/common.sh
+
+payload=/tmp/artifactory-resource-request
+cat > "$payload" <&0
+
+version_strategy=$(jq -r '.source.version_strategy // "none"' < "$payload")
+if [[ $version_strategy == "none" ]]; then
+  echo '[]' >&3
+  exit 0
+fi
+
+base_url=$(require_attr source url)
+repository=$(require_attr source repository)
+api_key=$(require_attr source api_key)
+version=$(jq -r '.version.sha256 // ""' < "$payload")
+
+if [[ $version_strategy == "single-file" ]]; then
+  file_path=$(require_attr source path)
+
+  data=$(curl -fSsL \
+    -H "X-JFrog-Art-Api: ${api_key}" \
+    "${base_url}/api/storage/${repository}/${file_path}"
+  )
+
+  checksum_sha256=$(echo "$data" | jq -r '.checksums.sha256')
+
+  if [[ $checksum_sha256 == $version ]]; then
+    echo '[]' >&3
+  else
+    jq -n "[{
+      sha256: \"$checksum_sha256\"
+    }]" >&3
+  fi
+
+else
+  echo "unrecognized version strategy: $version_strategy" >&2
+  exit 1
+fi

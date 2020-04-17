@@ -1,0 +1,21 @@
+{
+  "repo": "generic-local",
+  "path": "/path/to/file.tar.gz",
+  "created": "2020-04-07T20:40:36.702Z",
+  "createdBy": "you",
+  "lastModified": "2020-04-09T15:22:46.939Z",
+  "modifiedBy": "you",
+  "lastUpdated": "2020-04-09T15:23:00.849Z",
+  "downloadUri": "https://artifactory/generic-local/path/to/file.tar.gz",
+  "mimeType": "application/x-gzip",
+  "size": "833407913",
+  "checksums": {
+    "sha1": "476de7fdcdf123744efc22de3f5b90d47873f106",
+    "md5": "3a2489d9c21396c62cac321543ab254c",
+    "sha256": "d73679c6aa31eea5df0bddaa541d7b849b4ab51f21bedc0ced23ddd9ab124691"
+  },
+  "originalChecksums": {
+    "sha256": "d73679c6aa31eea5df0bddaa541d7b849b4ab51f21bedc0ced23ddd9ab124691"
+  },
+  "uri": "https://artifactory/api/storage/generic-local/path/to/file.tar.gz"
+}
