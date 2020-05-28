@@ -63,10 +63,61 @@ describe "commands:check" do
 
   describe "single file version strategy" do
 
+    it "returns empty version on 404" do
+      prep_curl_stub_with_status("", 404)
+
+      stdin = {
+        "source" => {
+          "version_strategy" => "single-file",
+          "url" => "https://artifactory",
+          "repository" => "generic-local",
+          "api_key" => "foo",
+          "path" => "path/to/file.tar.gz"
+        },
+      }.to_json
+
+      stdout, stderr, status = Open3.capture3("#{check_file} .", :stdin_data => stdin)
+
+      expect(status.success?).to be true
+
+      out = JSON.parse(File.read(mockelton_out))
+
+      expect(out["sequence"].size).to be 1
+      expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
+                                                              "curl",
+                                                              "-SsLk",
+                                                              "--write-out", '\n%{http_code}\n',
+                                                              "-H", "X-JFrog-Art-Api: foo",
+                                                              "https://artifactory/api/storage/generic-local/path/to/file.tar.gz"
+                                                            ]
+
+      expect(stdout).to eq "[]\n"
+    end
+
+    it "returns error on failure status code" do
+      prep_curl_stub_with_status("", 500)
+
+      stdin = {
+        "source" => {
+          "version_strategy" => "single-file",
+          "url" => "https://artifactory",
+          "repository" => "generic-local",
+          "api_key" => "foo",
+          "path" => "path/to/file.tar.gz"
+        },
+      }.to_json
+
+      stdout, stderr, status = Open3.capture3("#{check_file} .", :stdin_data => stdin)
+
+      expect(status.success?).to be false
+      expect(stdout).to eq ""
+      expect(stderr).to eq "HTTP API request failed with status code: 500\n"
+    end
+
     describe "on first run" do
 
       it "returns new version" do
-        prep_curl_stub(load_fixture('file_info.json'))
+        prep_curl_stub_with_status(load_fixture('file_info.json'), 200)
 
         stdin = {
           "source" => {
@@ -87,7 +138,8 @@ describe "commands:check" do
         expect(out["sequence"].size).to be 1
         expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
                                                                 "curl",
-                                                                "-fSsL",
+                                                                "-SsLk",
+                                                                "--write-out", '\n%{http_code}\n',
                                                                 "-H", "X-JFrog-Art-Api: foo",
                                                                 "https://artifactory/api/storage/generic-local/path/to/file.tar.gz"
                                                               ]
@@ -105,7 +157,7 @@ describe "commands:check" do
     describe "on second run" do
 
       it "acknowledges existing version" do
-        prep_curl_stub(load_fixture('file_info.json'))
+        prep_curl_stub_with_status(load_fixture('file_info.json'), 200)
 
         stdin = {
           "source" => {
@@ -129,7 +181,8 @@ describe "commands:check" do
         expect(out["sequence"].size).to be 1
         expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
                                                                 "curl",
-                                                                "-fSsL",
+                                                                "-SsLk",
+                                                                "--write-out", '\n%{http_code}\n',
                                                                 "-H", "X-JFrog-Art-Api: foo",
                                                                 "https://artifactory/api/storage/generic-local/path/to/file.tar.gz"
                                                               ]
@@ -138,7 +191,7 @@ describe "commands:check" do
       end
 
       it "returns new version" do
-        prep_curl_stub(load_fixture('file_info.json'))
+        prep_curl_stub_with_status(load_fixture('file_info.json'), 200)
 
         stdin = {
           "source" => {
@@ -162,7 +215,8 @@ describe "commands:check" do
         expect(out["sequence"].size).to be 1
         expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
                                                                 "curl",
-                                                                "-fSsL",
+                                                                "-SsLk",
+                                                                "--write-out", '\n%{http_code}\n',
                                                                 "-H", "X-JFrog-Art-Api: foo",
                                                                 "https://artifactory/api/storage/generic-local/path/to/file.tar.gz"
                                                               ]

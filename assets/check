@@ -26,19 +26,31 @@ version=$(jq -r '.version.sha256 // ""' < "$payload")
 if [[ $version_strategy == "single-file" ]]; then
   file_path=$(require_attr source path)
 
-  data=$(curl -fSsL \
+  response=$(curl -SsLk \
+    --write-out '\n%{http_code}\n' \
     -H "X-JFrog-Art-Api: ${api_key}" \
     "${base_url}/api/storage/${repository}/${file_path}"
   )
+  status_code="${response##*$'\n'}"
 
-  checksum_sha256=$(echo "$data" | jq -r '.checksums.sha256')
+  if [[ $status_code == 200 ]]; then
+    data=$(echo "$response" | head -n-1)
+    checksum_sha256=$(echo "$data" | jq -r '.checksums.sha256')
 
-  if [[ $checksum_sha256 == $version ]]; then
+    if [[ $checksum_sha256 == $version ]]; then
+      echo '[]' >&3
+    else
+      jq -n "[{
+        sha256: \"$checksum_sha256\"
+      }]" >&3
+    fi
+
+  elif [[ $status_code == 404 ]]; then
     echo '[]' >&3
+
   else
-    jq -n "[{
-      sha256: \"$checksum_sha256\"
-    }]" >&3
+    echo "HTTP API request failed with status code: ${status_code}"
+    exit 1
   fi
 
 else

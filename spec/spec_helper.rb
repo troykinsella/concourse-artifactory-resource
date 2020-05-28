@@ -111,6 +111,22 @@ def load_fixture(fixture_name)
 end
 
 # Stub 1 curl invocation
+def prep_curl_stub_with_status(output, status_code)
+  File.write(mockeltonfile, <<~EOF
+    ---
+    report:
+      file: /resource/mockleton.out
+    sequence:
+    - output:
+        print:
+        - out: |
+            #{output}
+            #{status_code}
+  EOF
+  )
+end
+
+# Stub 1 curl invocation
 def prep_curl_stub(output)
   File.write(mockeltonfile, <<~EOF
     ---
