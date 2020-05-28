@@ -1,0 +1,31 @@
+{
+  "repo": "generic-local",
+  "path": "/path",
+  "created": "2019-11-15T23:05:43.481Z",
+  "createdBy": "me",
+  "lastModified": "2019-11-15T23:05:43.481Z",
+  "modifiedBy": "me",
+  "lastUpdated": "2019-11-15T23:05:43.481Z",
+  "children": [
+    {
+      "uri": "/foo-1.0.0.tar.gz",
+      "folder": false
+    },
+    {
+      "uri": "/foo-1.0.1.tar.gz",
+      "folder": false
+    },
+    {
+      "uri": "/foo-1.1.0.tar.gz",
+      "folder": false
+    },
+    {
+      "uri": "/bar-2.0.0.tar.gz",
+      "folder": false
+    },
+    {
+      "uri": "/baz",
+      "folder": true
+    }
+  ]
+}

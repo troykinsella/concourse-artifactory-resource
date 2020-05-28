@@ -6,7 +6,8 @@ One of the following version strategies can be configured:
 
 | Version Strategy | Description |
 | --- | --- |
-| `none`   | The resource does not manipulate any versions. The `check` and `in` operations are no-ops, and the `put` operation allows you to publish one or more files to a repository path. This configuration is suitable for simply publishing files to Artifactory, but it not suitable if any downstream jobs need to react (i.e. `trigger: true`) to changes to a published file. 
+| `none`   | The resource does not manipulate any versions. The `check` and `in` operations are no-ops, and the `put` operation allows you to publish one or more files to a repository path. This configuration is suitable for simply publishing files to Artifactory, but it not suitable if any downstream jobs need to react (i.e. `trigger: true`) to changes to a published file.
+| `multi-file` | Lists files matching a glob pattern in a repository, and extracts the version from the file name using a regex. This strategy is appropriate when publications create new files that do not overwrite existing files, and the file names contain a version.
 | `single-file` | This strategy treats a changing sha256 sum of a single file as a version stream. This is appropriate when only a single file name is manipulated, and a publication can overwrite a previous one of the same name/path.
 
 
@@ -16,9 +17,15 @@ One of the following version strategies can be configured:
 * `repository`: Required. The name of the generic repository in Artifactory. Example: `generic-local`.
 * `api_key`: Required. The API key with which to publish artifacts.
 * `version_strategy`: Optional. The strategy by which to handle versioning. Default: `none`.
-* `path`: When the `version_strategy` is:
-  * `none`: Optional. Denotes a directory path under the `repository` in which files will be published.
-  * `single-file`: Required. The path to the single file to manipulate, relative to `repository`.
+
+Version strategy-specific properties:
+
+* `none`:
+  * `path`: Optional. Denotes a directory path under the `repository` in which files will be published.
+* `multi-file`:
+  * `path`: Optional. The path to the directory in which artifact files can be located, relative to `repository`.
+* `single-file`:
+  * `path`: Required. The path to the single file to manipulate, relative to `repository`.
 
 ## Behaviour
 

@@ -127,6 +127,21 @@ def prep_curl_stub_with_status(output, status_code)
 end
 
 # Stub 1 curl invocation
+def prep_curl_stub_with_error(err, exit_code)
+  File.write(mockeltonfile, <<~EOF
+    ---
+    report:
+      file: /resource/mockleton.out
+    sequence:
+    - output:
+        print:
+        - err: #{err}
+        exit-code: #{exit_code}
+  EOF
+  )
+end
+
+# Stub 1 curl invocation
 def prep_curl_stub(output)
   File.write(mockeltonfile, <<~EOF
     ---
