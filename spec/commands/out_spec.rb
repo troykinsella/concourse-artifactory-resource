@@ -163,4 +163,57 @@ describe "commands:out" do
 
   end
 
+  describe "multi file version strategy" do
+
+    it "should return a version" do
+      prep_curl_stub '""'
+
+      stdin = {
+        "source" => {
+          "version_strategy" => "multi-file",
+          "url" => "https://artifactory",
+          "repository" => "generic-local",
+          "api_key" => "foo",
+          "path" => "path",
+          "file_pattern" => "foo-.*",
+          "version_pattern" => "[0-9]+[.][0-9]+[.][0-9]+"
+        },
+        "params" => {
+          "files" => param_files
+        },
+      }.to_json
+
+      File.write(File.join(param_files, 'foo-1.2.3.tar.gz'), "foo")
+
+      stdout, stderr, status = Open3.capture3("#{out_file} .", :stdin_data => stdin)
+
+      expect(status.success?).to be true
+
+      out = JSON.parse(File.read(mockelton_out))
+
+      expect(out["sequence"].size).to be 1
+      expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
+                                                              "curl",
+                                                              "--fail",
+                                                              "-L",
+                                                              "-X", "PUT",
+                                                              "-H", "X-JFrog-Art-Api: foo",
+                                                              "-H", "X-Checksum-Sha1: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
+                                                              "-H", "X-Checksum-Sha256: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+                                                              "-H", "X-Checksum-Md5: acbd18db4cc2f85cedef654fccc4a4d8",
+                                                              "-T", "foo-1.2.3.tar.gz",
+                                                              "https://artifactory/generic-local/path/foo-1.2.3.tar.gz"
+                                                            ]
+
+      expect(stdout).to eq <<~EOF
+        {
+          "version": {
+            "number": "1.2.3"
+          }
+        }
+      EOF
+    end
+
+  end
+
 end
