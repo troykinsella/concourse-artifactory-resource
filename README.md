@@ -65,9 +65,9 @@ General parameters:
 The behaviour depends on the configured `version_strategy`:
 * `none`: Any files found in the `param.files` directory that match the optional `glob` pattern 
   will be published to the given `source.path` under the `source.repository` in Artifactory.
-* `multi-file`: A single file supplied in the `files.path` parameter, matching the `source.file_pattern`, and having a
-  version that can be extracted with `source.version_pattern` will be published to the given 
-  `source.path` under the `source.repository` in Artifactory.
+* `multi-file`: Publish files matching `params.glob` to the `source.path` under the `source.repository` in 
+  Artifactory. The version being published is determined by filtering the file list in the `params.files`
+  directory using `source.file_pattern` and then extracting the version with `source.version_pattern`.
 * `single-file`: A single file supplied in the `files.path` parameter, having the basename of `source.path` will 
   be published to the given `source.path` under the `source.repository` in Artifactory.
 
