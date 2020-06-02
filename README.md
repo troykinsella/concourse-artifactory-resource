@@ -82,6 +82,9 @@ Version strategy-specific parameters:
 * `none`:
   * `glob`: Optional. Default: `*`. A glob expression of the file names to match
   for publication.
+* `multi-file`:
+  * `glob`: Optional. Default: `*`. A glob expression of the file names to match
+  for publication.
 
 ## Examples
 
@@ -163,6 +166,7 @@ jobs:
   - put: artifact
     params:
       files: files-to-publish
+      glob: "*.tar.gz"
 ```
 
 ### Version Strategy: `single-file`

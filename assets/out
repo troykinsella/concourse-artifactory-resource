@@ -107,7 +107,18 @@ elif [[ $version_strategy == 'multi-file' ]]; then
     exit 1
   fi
 
-  publish "$file_name" "$base_url/$repository/$dir_path/$file_name"
+  # Loop matching files and publish each
+  published=
+  glob=$(jq -r '.params.glob // "*"' < "$payload")
+  for f in $(ls $glob 2> /dev/null); do
+    publish "$f" "$base_url/$repository/$dir_path/$f"
+    published=yep
+  done
+
+  if [[ -z "$published" ]]; then
+    echo "glob param did not match any files in path: $source/$files" >&2
+    exit 1
+  fi
 
   jq -n "{
     version: {
