@@ -25,7 +25,7 @@ Version strategy-specific attributes:
 * `none`:
   * `path`: Optional. Denotes a directory path under the `repository` in which files will be published.
 * `multi-file`:
-  * `file_pattern`: Optional. Default: `.*`. The regex with which to filter a listing of files in the `source.repository` directory.
+  * `file_pattern`: Optional. Default: `.*`. The regex with which to filter a listing of files in the `source.repository`/`source.path` directory.
     Useful when a repository contains a mixed set of artifacts, and this resource needs to operate on a single version line according
     to a file naming pattern.
   * `path`: Optional. The path to the directory in which artifact files can be located, relative to `repository`.
@@ -81,7 +81,7 @@ Version strategy-specific parameters:
 
 * `none`:
   * `glob`: Optional. Default: `*`. A glob expression of the file names to match
-  for publication. Only relevant to the `none` version strategy.
+  for publication.
 
 ## Examples
 
