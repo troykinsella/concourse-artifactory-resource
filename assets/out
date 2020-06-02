@@ -18,7 +18,6 @@ cat > "$payload" <&0
 
 base_url=$(require_attr source url)
 repository=$(require_attr source repository)
-file_path=$(require_attr source path)
 api_key=$(require_attr source api_key)
 files=$(require_attr params files)
 version_strategy=$(jq -r '.source.version_strategy // "none"' < "$payload")
@@ -50,6 +49,8 @@ publish() {
 cd "$source/$files"
 
 if [[ $version_strategy == "none" ]]; then
+  file_path=$(require_attr source path)
+
   # No version strategy; just loop matching files and publish each
   published=
   glob=$(jq -r '.params.glob // "*"' < "$payload")
@@ -66,13 +67,62 @@ if [[ $version_strategy == "none" ]]; then
   echo '{"version":{}}' >&3
 
 elif [[ $version_strategy == 'single-file' ]]; then
+  file_path=$(require_attr source path)
   file_name=$(basename "$file_path")
+  version=$(sha256sum "$file_name" | awk '{print $1}')
+
   publish "$file_name" "$base_url/$repository/$file_path"
 
-  version=$(sha256sum "$file_name" | awk '{print $1}')
   jq -n "{
     version: {
       sha256: \"$version\"
+    }
+  }" >&3
+
+elif [[ $version_strategy == 'multi-file' ]]; then
+  dir_path=$(require_attr source path)
+  file_pattern=$(jq -r '.source.file_pattern // ".*"' < "$payload")
+  version_pattern=$(require_attr source version_pattern)
+
+  file_name=$(ls | (egrep "$file_pattern" || true))
+  if [[ -z $file_name ]]; then
+    echo "'source.file_pattern' did not match any files in 'params.files'" >&2
+    echo "files:" >&2
+    ls >&2
+    exit 1
+  elif [[ $(echo "$file_name" | wc -l) -gt 1 ]]; then
+    echo "'source.file_pattern' matched multiple files in 'params.files'" >&2
+    echo "files:" >&2
+    ls >&2
+    exit 1
+  fi
+
+  version=$(echo "$file_name" | (egrep -o "$version_pattern" || true))
+  if [[ -z $version ]]; then
+    echo "no version found in artifact file name: $file_name" >&2
+    exit 1
+  fi
+  if ! echo "$version" | egrep -o "$version_pattern" > /dev/null; then
+    echo "version found in artifact file name did not match 'source.version_pattern': $version" >&2
+    exit 1
+  fi
+
+  # Loop matching files and publish each
+  published=
+  glob=$(jq -r '.params.glob // "*"' < "$payload")
+  for f in $(ls $glob 2> /dev/null); do
+    publish "$f" "$base_url/$repository/$dir_path/$f"
+    published=yep
+  done
+
+  if [[ -z "$published" ]]; then
+    echo "glob param did not match any files in path: $source/$files" >&2
+    exit 1
+  fi
+
+  jq -n "{
+    version: {
+      number: \"$version\"
     }
   }" >&3
 

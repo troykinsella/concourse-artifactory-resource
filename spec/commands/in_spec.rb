@@ -71,6 +71,8 @@ describe "commands:in" do
   describe "single file version strategy" do
 
     it "errors on non-existent version" do
+      prep_curl_stub(load_fixture('file_info.json'))
+
       stdin = {
         "source" => {
           "version_strategy" => "single-file",
@@ -179,6 +181,129 @@ describe "commands:in" do
       EOF
 
       expect(File.read("version")).to eq "d73679c6aa31eea5df0bddaa541d7b849b4ab51f21bedc0ced23ddd9ab124691\n"
+    end
+
+  end
+
+
+  describe "multi file version strategy" do
+
+    it "errors on non-existent version" do
+      prep_curl_stub(load_fixture('file_list.json'))
+
+      stdin = {
+        "source" => {
+          "version_strategy" => "multi-file",
+          "url" => "https://artifactory",
+          "repository" => "generic-local",
+          "api_key" => "foo",
+          "path" => "path",
+          "file_pattern" => "foo-.*",
+          "version_pattern" => "[0-9]+[.][0-9]+[.][0-9]+"
+        },
+        "version" => {
+          "number" => "noap"
+        },
+        "params" => {}
+      }.to_json
+
+      stdout, stderr, status = Open3.capture3("#{in_file} .", :stdin_data => stdin)
+
+      expect(status.success?).to be false
+      expect(stderr).to eq "version unavailable: noap\n"
+    end
+
+    it "downloads existing version" do
+      prep_curl_stub(load_fixture('file_list.json'))
+
+      stdin = {
+        "source" => {
+          "version_strategy" => "multi-file",
+          "url" => "https://artifactory",
+          "repository" => "generic-local",
+          "api_key" => "foo",
+          "path" => "path",
+          "file_pattern" => "foo-.*",
+          "version_pattern" => "[0-9]+[.][0-9]+[.][0-9]+"
+        },
+        "version" => {
+          "number" => "1.0.1"
+        },
+        "params" => {}
+      }.to_json
+
+      stdout, stderr, status = Open3.capture3("#{in_file} .", :stdin_data => stdin)
+
+      expect(status.success?).to be true
+      out = JSON.parse(File.read(mockelton_out))
+      expect(out["sequence"].size).to be 2
+      expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
+                                                              "curl",
+                                                              "-fSsL",
+                                                              "-H", "X-JFrog-Art-Api: foo",
+                                                              "https://artifactory/api/storage/generic-local/path"
+                                                            ]
+      expect(out["sequence"][1]["exec-spec"]["args"]).to eq [
+                                                              "curl",
+                                                              "-fL",
+                                                              "-H", "X-JFrog-Art-Api: foo",
+                                                              "-o", "foo-1.0.1.tar.gz",
+                                                              "https://artifactory/generic-local/path/foo-1.0.1.tar.gz"
+                                                            ]
+
+      expect(stdout).to eq <<~EOF
+        {
+          "version": {
+            "number": "1.0.1"
+          }
+        }
+      EOF
+
+      expect(File.read("version")).to eq "1.0.1\n"
+    end
+
+    it "skips download" do
+      prep_curl_stub(load_fixture('file_list.json'))
+
+      stdin = {
+        "source" => {
+          "version_strategy" => "multi-file",
+          "url" => "https://artifactory",
+          "repository" => "generic-local",
+          "api_key" => "foo",
+          "path" => "path",
+          "file_pattern" => "foo-.*",
+          "version_pattern" => "[0-9]+[.][0-9]+[.][0-9]+"
+        },
+        "version" => {
+          "number" => "1.0.1"
+        },
+        "params" => {
+          "skip_download" => true
+        }
+      }.to_json
+
+      stdout, stderr, status = Open3.capture3("#{in_file} .", :stdin_data => stdin)
+
+      expect(status.success?).to be true
+      out = JSON.parse(File.read(mockelton_out))
+      expect(out["sequence"].size).to be 1
+      expect(out["sequence"][0]["exec-spec"]["args"]).to eq [
+                                                              "curl",
+                                                              "-fSsL",
+                                                              "-H", "X-JFrog-Art-Api: foo",
+                                                              "https://artifactory/api/storage/generic-local/path"
+                                                            ]
+
+      expect(stdout).to eq <<~EOF
+        {
+          "version": {
+            "number": "1.0.1"
+          }
+        }
+      EOF
+
+      expect(File.read("version")).to eq "1.0.1\n"
     end
 
   end

@@ -24,9 +24,44 @@ base_url=$(require_attr source url)
 repository=$(require_attr source repository)
 api_key=$(require_attr source api_key)
 version_strategy=$(jq -r '.source.version_strategy // "none"' < "$payload")
-skip_download=$(jq -r '.params.skip_download // false' < "$payload")
 
 cd "$destination"
+
+find_file_for_version() {
+  local list_data="$1"
+  local version="$2"
+
+  local files=$(echo "$list_data" | \
+    jq -r '.children[] | select(.folder == false) | .uri' | \
+    sed -e 's/^\///' | \
+    (egrep "$file_pattern" || true) | \
+    sort -V
+  )
+  IFS=$'\n'
+  for f in $files; do
+    local v=$(echo "$f" | egrep -o "$version_pattern" || true)
+    if [[ $v == $version ]]; then
+      echo "$f"
+      break
+    fi
+  done
+  unset IFS
+}
+
+download_artifact() {
+  local file_name="$1"
+  local file_url="$2"
+  local skip_download=$(jq -r '.params.skip_download // false' < "$payload")
+  if [ "$skip_download" = "false" ]; then
+    echo "Downloading ${file_url}..."
+    curl -fL \
+      -H "X-JFrog-Art-Api: ${api_key}" \
+      -o "$file_name" \
+      "$file_url"
+  else
+    echo "Skipping download"
+  fi
+}
 
 if [[ $version_strategy == "none" ]]; then
   # Do nothing
@@ -51,20 +86,39 @@ elif [[ $version_strategy == "single-file" ]]; then
 
   file_url=$(echo "$data" | jq -r '.downloadUri')
   file_name=$(basename $(echo "$data" | jq -r '.path'))
-
-  if [ "$skip_download" = "false" ]; then
-    echo "Downloading ${file_url}..."
-    curl -fL \
-      -H "X-JFrog-Art-Api: ${api_key}" \
-      -o "$file_name" \
-      "$file_url"
-  else
-    echo "Skipping download"
-  fi
+  download_artifact "$file_name" "$file_url"
 
   jq -n "{
     version: {
       sha256: \"$checksum_sha256\"
+    }
+  }" >&3
+
+elif [[ $version_strategy == "multi-file" ]]; then
+  version=$(require_attr version number)
+  echo "$version" > version
+
+  dir_path=$(jq -r '.source.path // ""' < "$payload")
+  file_pattern=$(jq -r '.source.file_pattern // ".*"' < "$payload")
+  version_pattern=$(require_attr source version_pattern)
+
+  data=$(curl -fSsL \
+    -H "X-JFrog-Art-Api: ${api_key}" \
+    "${base_url}/api/storage/${repository}/${dir_path}"
+  )
+
+  file_name=$(find_file_for_version "$data" "$version")
+  if [[ -z $file_name ]]; then
+    echo "version unavailable: $version" >&2
+    exit 1
+  fi
+
+  file_url="${base_url}/${repository}/${dir_path}/${file_name}"
+  download_artifact "$file_name" "$file_url"
+
+  jq -n "{
+    version: {
+      number: \"$version\"
     }
   }" >&3
 
